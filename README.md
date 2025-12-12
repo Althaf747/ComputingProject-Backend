@@ -55,10 +55,11 @@ OpenAPI spec is available at `openapi.yaml` for full details.
 
 ### Logs (JWT Protected)
 - `GET /api/logs` — List all logs
-- `GET /api/logs/today?name=John` — Today logs, optional name filter
-- `GET /api/logs/last-7-days?name=John` — Last 7 days, optional name
-- `GET /api/logs/last-month?name=John` — Last month, optional name
-- `GET /api/logs/date/{YYYY-MM-DD}?name=John` — Specific date, optional name
+- `GET /api/logs/filter?period=today&name=John` — Filter logs by period (today, date, or range)
+  - **Today**: `?period=today` or no parameters (default)
+  - **Specific date**: `?period=date&date=YYYY-MM-DD`
+  - **Date range**: `?period=range&start=YYYY-MM-DD&end=YYYY-MM-DD`
+  - **With name filter**: Add `&name=John` to any query
 - `POST /api/logs` — Create log
 - `DELETE /api/logs/{id}` — Hard delete log
 
@@ -97,9 +98,29 @@ Use JWT token in the `Authorization` header:
 Authorization: Bearer <JWT_TOKEN>
 ```
 
-### Get Last 7 Days Logs
+### Get Filtered Logs
+
+**Today's logs:**
 ```bash
-curl -X GET "http://localhost:8080/api/logs/last-7-days?name=John" \
+curl -X GET "http://localhost:8080/api/logs/filter?period=today" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+**Specific date:**
+```bash
+curl -X GET "http://localhost:8080/api/logs/filter?period=date&date=2025-12-12" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+**Date range:**
+```bash
+curl -X GET "http://localhost:8080/api/logs/filter?period=range&start=2025-12-01&end=2025-12-10" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
+```
+
+**With name filter:**
+```bash
+curl -X GET "http://localhost:8080/api/logs/filter?period=today&name=John" \
   -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 

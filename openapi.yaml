@@ -128,80 +128,45 @@ paths:
           description: Invalid input
         '500':
           description: Server error
-  /api/logs/today:
+  /api/logs/filter:
     get:
-      summary: Get today's logs (optionally filtered by name)
+      summary: Get filtered logs by period (today, specific date, or date range)
       tags: [Logs]
       security:
         - bearerAuth: []
       parameters:
         - in: query
-          name: name
+          name: period
           schema:
             type: string
+            enum: [today, date, range]
           required: false
-          description: Filter by visitor name
-      responses:
-        '200':
-          description: Logs with stats
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LogStatsResponse'
-  /api/logs/last-7-days:
-    get:
-      summary: Get logs for the last 7 days (optionally filtered by name)
-      tags: [Logs]
-      security:
-        - bearerAuth: []
-      parameters:
+          description: |
+            Filter period type:
+            - today: Get today's logs (default if not specified)
+            - date: Get logs for a specific date (requires 'date' parameter)
+            - range: Get logs within a date range (requires 'start' and 'end' parameters)
         - in: query
-          name: name
-          schema:
-            type: string
-          required: false
-          description: Filter by visitor name
-      responses:
-        '200':
-          description: Logs with stats
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LogStatsResponse'
-  /api/logs/last-month:
-    get:
-      summary: Get logs for the last month (optionally filtered by name)
-      tags: [Logs]
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: name
-          schema:
-            type: string
-          required: false
-          description: Filter by visitor name
-      responses:
-        '200':
-          description: Logs with stats
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LogStatsResponse'
-  /api/logs/date/{date}:
-    get:
-      summary: Get logs for a specific date (optionally filtered by name)
-      tags: [Logs]
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
           name: date
-          required: true
           schema:
             type: string
             format: date
-          description: Date in YYYY-MM-DD (Asia/Jakarta timezone)
+          required: false
+          description: Specific date in YYYY-MM-DD format (required when period=date)
+        - in: query
+          name: start
+          schema:
+            type: string
+            format: date
+          required: false
+          description: Start date in YYYY-MM-DD format (required when period=range)
+        - in: query
+          name: end
+          schema:
+            type: string
+            format: date
+          required: false
+          description: End date in YYYY-MM-DD format (required when period=range)
         - in: query
           name: name
           schema:
@@ -216,7 +181,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/LogStatsResponse'
         '400':
-          description: Invalid date format
+          description: Invalid parameters or date format
   /api/logs/{id}:
     delete:
       summary: Delete a log entry (hard delete)
