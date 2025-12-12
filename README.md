@@ -143,11 +143,5 @@ comp/
   openapi.yaml
 ```
 
-## Development Tips
-- Commit `go.mod` and `go.sum` to version control.
-- For production, move DSN and JWT secret to environment variables.
-- Ensure MySQL user has rights to create/alter tables for auto-migrations.
-- Logs timestamps are stored as `TEXT` in ISO 8601; queries compare strings.
-
 ## License
 No license specified. Add one if you plan to share/distribute.
