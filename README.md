@@ -73,7 +73,7 @@ OpenAPI spec is available at `openapi.yaml` for full details.
 ```bash
 curl -X POST http://localhost:8080/api/users/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"john","password":"password123","confirmPassword":"password123"}'
+  -d '{"username":"john","password":"password123","ConfirmPassword":"password123"}'
 ```
 
 ### Login
