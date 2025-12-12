@@ -19,10 +19,7 @@ func SetupRoutes(r *gin.Engine) {
 		protected.Use(middleware.AuthMiddleware())
 		{
 			protected.GET("", controllers.GetLogs)
-			protected.GET("/last-7-days", controllers.GetFilteredLogs) // query : name?=
-			protected.GET("/last-month", controllers.GetFilteredLogs)  // query : name?=
-			protected.GET("/date/:date", controllers.GetFilteredLogs)  // query : name?=
-			protected.GET("/today", controllers.GetFilteredLogs)       // query : name?=
+			protected.GET("/filter", controllers.GetFilteredLogs) // query : period=today|date|range&date=YYYY-MM-DD&start=YYYY-MM-DD&end=YYYY-MM-DD&name=
 
 			protected.POST("", controllers.CreateLog)
 			protected.DELETE("/:id", controllers.DeleteLog)

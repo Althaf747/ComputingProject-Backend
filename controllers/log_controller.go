@@ -29,29 +29,49 @@ func GetFilteredLogs(c *gin.Context) {
 	}
 
 	name := c.Query("name")
-	path := c.FullPath()
-	dateStr := c.Param("date")
+	period := c.Query("period")
+	dateStr := c.Query("date")
+	startDateStr := c.Query("start")
+	endDateStr := c.Query("end")
 
 	var startStr, endStr string
 	var startLocal, endLocal time.Time
 	now := time.Now().In(loc)
 
-	if path == "/api/logs/last-7-days" {
-		endLocal = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, loc).Add(time.Second)
-		startLocal = endLocal.Add(-7 * 24 * time.Hour)
-	} else if path == "/api/logs/last-month" {
-		endLocal = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, loc).Add(time.Second)
-		startLocal = endLocal.AddDate(0, -1, 0)
-	} else if path == "/api/logs/today" || dateStr == "" {
-		startLocal = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-		endLocal = startLocal.Add(24 * time.Hour)
-	} else {
+	switch period {
+	case "range":
+		if startDateStr == "" || endDateStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Start and end date parameters are required for 'range' period"})
+			return
+		}
+		startParsed, err := time.ParseInLocation("2006-01-02", startDateStr, loc)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start date format. Use YYYY-MM-DD"})
+			return
+		}
+		endParsed, err := time.ParseInLocation("2006-01-02", endDateStr, loc)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end date format. Use YYYY-MM-DD"})
+			return
+		}
+		startLocal = time.Date(startParsed.Year(), startParsed.Month(), startParsed.Day(), 0, 0, 0, 0, loc)
+		endLocal = time.Date(endParsed.Year(), endParsed.Month(), endParsed.Day(), 23, 59, 59, 0, loc).Add(time.Second)
+	case "date":
+		if dateStr == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Date parameter is required for 'date' period"})
+			return
+		}
 		parsedDate, err := time.ParseInLocation("2006-01-02", dateStr, loc)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid date format. Use YYYY-MM-DD"})
 			return
 		}
 		startLocal = time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 0, 0, 0, 0, loc)
+		endLocal = startLocal.Add(24 * time.Hour)
+	case "today":
+		fallthrough
+	default:
+		startLocal = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
 		endLocal = startLocal.Add(24 * time.Hour)
 	}
 
@@ -64,10 +84,6 @@ func GetFilteredLogs(c *gin.Context) {
 
 	if name != "" {
 		query = query.Where("name = ?", name)
-	}
-
-	if path == "/api/logs/last-7-days" || path == "/api/logs/last-month" {
-		query = query.Order("timestamp DESC")
 	}
 
 	if err := query.Find(&logs).Error; err != nil {
