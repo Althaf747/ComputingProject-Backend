@@ -144,4 +144,4 @@ comp/
 ```
 
 ## License
-No license specified. Add one if you plan to share/distribute.
+Made to fulfill the requirements of the Computing Project course
