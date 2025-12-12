@@ -67,12 +67,12 @@ func GetFilteredLogs(c *gin.Context) {
 			return
 		}
 		startLocal = time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 0, 0, 0, 0, loc)
-		endLocal = startLocal.Add(24 * time.Hour)
+		endLocal = time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), 23, 59, 59, 0, loc).Add(time.Second)
 	case "today":
 		fallthrough
 	default:
 		startLocal = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
-		endLocal = startLocal.Add(24 * time.Hour)
+		endLocal = time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, loc).Add(time.Second)
 	}
 
 	startStr = startLocal.Format("2006-01-02T15:04:05")
@@ -80,7 +80,7 @@ func GetFilteredLogs(c *gin.Context) {
 
 	var logs []models.Log
 
-	query := config.DB.Where("timestamp >= ? AND timestamp < ?", startStr, endStr)
+	query := config.DB.Where("timestamp >= ? AND timestamp <= ?", startStr, endStr)
 
 	if name != "" {
 		query = query.Where("name = ?", name)
