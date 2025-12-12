@@ -288,7 +288,7 @@ components:
           format: date-time
     UserRegisterRequest:
       type: object
-      required: [username, password, confirmPassword]
+      required: [username, password, ConfirmPassword]
       properties:
         username:
           type: string
