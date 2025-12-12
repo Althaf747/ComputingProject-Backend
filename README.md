@@ -139,6 +139,8 @@ comp/
     routes.go
   config/
     db.go
+  go.mod
+  go.sum
   main.go
   openapi.yaml
 ```
