@@ -4,7 +4,6 @@ import (
 	"comproBackend/config"
 	"comproBackend/middleware"
 	"comproBackend/models"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -157,6 +156,11 @@ func ResetPassword(c *gin.Context) {
 		return
 	}
 
+	if user.Role == "pending" || user.Role == "rejected" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot reset password for pending or rejected users"})
+		return
+	}
+
 	user.NeedsReset = true
 	if err := config.DB.Save(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -188,27 +192,41 @@ func Approval(c *gin.Context) {
 		NewRole string `json:"role"`
 	}
 
+	action := c.Query("action")
 	userID, err := strconv.ParseUint(c.Query("id"), 10, 32)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
 		return
 	}
 
-	c.ShouldBindJSON(&input)
+	_ = c.ShouldBindJSON(&input)
 
-	role, exists := c.Get("role")
-	if !exists {
-		fmt.Println("role not found in context")
-	}
-
-	if role != "verifier" {
+	if c.GetString("role") != "verifier" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 		return
 	}
 
 	var user models.User
+
 	if err := config.DB.First(&user, "id = ?", userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	var message string
+	if action == "reject" {
+		if user.Role == "pending" {
+			user.Role = "rejected"
+			message = "Registration Reject Successful"
+		} else {
+			user.NeedsReset = true
+			message = "Reset Request Reject Successful"
+		}
+		if err := config.DB.Save(&user).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": message, "data": user})
 		return
 	}
 
@@ -221,6 +239,5 @@ func Approval(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "User Approved successfully", "data": user})
 }

@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Compro Backend API
   version: 1.0.0
-  description: API for user auth and log management (JWT secured for log routes).
+  description: API for user auth, approval/reset workflow, and log management (JWT secured for protected routes).
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -107,7 +107,7 @@ paths:
                     type: string
                     example: wait for verificator approval
         '400':
-          description: Invalid input
+          description: Invalid input atau tidak boleh reset untuk user pending/rejected
         '404':
           description: User not found
         '500':
@@ -146,6 +146,14 @@ paths:
             type: integer
             format: int64
           description: ID user yang akan di-approve
+        - in: query
+          name: action
+          required: false
+          schema:
+            type: string
+            enum: [reject, approve]
+            default: approve
+          description: Gunakan `reject` untuk menolak pendaftaran atau permintaan reset
       requestBody:
         required: false
         content:
@@ -158,7 +166,7 @@ paths:
                   description: Role baru (opsional)
       responses:
         '200':
-          description: Approved
+          description: Approved or rejected
           content:
             application/json:
               schema:
@@ -347,7 +355,7 @@ components:
           format: date-time
     UserRegisterRequest:
       type: object
-      required: [username, password, ConfirmPassword]
+      required: [username, password, confirmPassword]
       properties:
         username:
           type: string

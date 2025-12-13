@@ -54,7 +54,7 @@ OpenAPI spec is available at `openapi.yaml` for full details.
 - `POST /api/users/logout` — Client should discard token
 - `POST /api/users/reset_request` — User requests password reset (flags account `needReset=true`, awaits verifier)
 - `GET /api/users/pending` — List pending signups and reset requests (auth, verifier)
-- `POST /api/users/approve?id={userId}` — Verifier approves user or reset; optional body `{ "role": "verifier" }`
+- `POST /api/users/approve?id={userId}[&action=reject]` — Verifier approves by default; add `action=reject` to reject signup/reset; optional body `{ "role": "verifier" }`
 
 ### Logs (JWT Protected)
 - `GET /api/logs` — List all logs
@@ -77,7 +77,7 @@ OpenAPI spec is available at `openapi.yaml` for full details.
 ```bash
 curl -X POST http://localhost:8080/api/users/register \
   -H "Content-Type: application/json" \
-  -d '{"username":"john","password":"password123","ConfirmPassword":"password123"}'
+  -d '{"username":"john","password":"password123","confirmPassword":"password123"}'
 ```
 
 ### Login
@@ -119,6 +119,12 @@ curl -X POST "http://localhost:8080/api/users/approve?id=5" \
   -H "Authorization: Bearer <JWT_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"role":"user"}'
+```
+
+Reject signup/reset:
+```bash
+curl -X POST "http://localhost:8080/api/users/approve?id=5&action=reject" \
+  -H "Authorization: Bearer <JWT_TOKEN>"
 ```
 
 ### Auth Header
@@ -175,7 +181,7 @@ curl -X DELETE http://localhost:8080/api/logs/1 \
 
 ## Project Structure
 ```
-comp/
+ComputingProject-Backend/
   controllers/
     log_controller.go
     user_controller.go
