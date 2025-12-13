@@ -34,7 +34,7 @@ func SetupRoutes(r *gin.Engine) {
 			protected.DELETE("/:id", controllers.DeleteLog)
 		}
 
-		v1.GET("api/camera", controllers.ProxyWebcam)
+		v1.GET("/camera", controllers.ProxyWebcam)
 
 	}
 
