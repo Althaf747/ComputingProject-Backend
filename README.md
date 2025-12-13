@@ -1,6 +1,6 @@
 # Compro Backend API
 
-A Gin-based Go backend for user authentication (JWT) and log management.
+A Gin-based Go backend for user authentication (JWT), approval workflow, password reset requests, and log management.
 
 ## Prerequisites
 - Go 1.25+
@@ -12,7 +12,7 @@ A Gin-based Go backend for user authentication (JWT) and log management.
 ```powershell
 # Clone your repo (if not already)
 # git clone <your-repo-url>
-cd comp
+cd ComputingProject-Backend
 
 # Ensure dependencies are present
 go mod tidy
@@ -52,6 +52,9 @@ OpenAPI spec is available at `openapi.yaml` for full details.
 - `POST /api/users/register` — Create user
 - `POST /api/users/login` — Login, returns JWT
 - `POST /api/users/logout` — Client should discard token
+- `POST /api/users/reset_request` — User requests password reset (flags account `needReset=true`, awaits verifier)
+- `GET /api/users/pending` — List pending signups and reset requests (auth, verifier)
+- `POST /api/users/approve?id={userId}` — Verifier approves user or reset; optional body `{ "role": "verifier" }`
 
 ### Logs (JWT Protected)
 - `GET /api/logs` — List all logs
@@ -65,7 +68,7 @@ OpenAPI spec is available at `openapi.yaml` for full details.
 
 ### Utility
 - `GET /health` — Healthcheck
-- `GET /api/camera` — Webcam proxy
+- `GET /api/camera` — Webcam proxy (path matches current route config)
 - `GET /ws` — WebSocket endpoint
 
 ## Request/Response Examples
@@ -90,6 +93,32 @@ Response:
   "token": "<JWT_TOKEN>",
   "data": {"id":1, "username":"john", "role":"user"}
 }
+```
+
+### Reset Password Request
+```bash
+curl -X POST http://localhost:8080/api/users/reset_request \
+  -H "Content-Type: application/json" \
+  -d '{"username":"john","password":"newpass","confirmPassword":"newpass"}'
+```
+Response:
+```json
+{ "message": "wait for verificator approval" }
+```
+
+### Pending / Approvals (verifier only)
+List pending users and reset requests:
+```bash
+curl -H "Authorization: Bearer <JWT_TOKEN>" \
+  http://localhost:8080/api/users/pending
+```
+
+Approve user/reset:
+```bash
+curl -X POST "http://localhost:8080/api/users/approve?id=5" \
+  -H "Authorization: Bearer <JWT_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"role":"user"}'
 ```
 
 ### Auth Header
