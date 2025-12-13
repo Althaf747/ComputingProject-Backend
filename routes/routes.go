@@ -11,9 +11,18 @@ import (
 func SetupRoutes(r *gin.Engine) {
 	v1 := r.Group("/api")
 	{
-		v1.POST("/users/register", controllers.Register)
-		v1.POST("/users/login", controllers.Login)
-		v1.POST("/users/logout", controllers.Logout)
+		user := v1.Group("/users")
+		user.POST("/register", controllers.Register)
+		user.POST("/login", controllers.Login)
+		user.POST("/logout", controllers.Logout)
+		user.POST("/reset_request", controllers.ResetPassword)
+
+		userProtected := v1.Group("/users")
+		userProtected.Use(middleware.AuthMiddleware())
+		{
+			userProtected.GET("/pending", controllers.GetPendingAndResetUsers)
+			userProtected.POST("/approve", controllers.Approval)
+		}
 
 		protected := v1.Group("/logs")
 		protected.Use(middleware.AuthMiddleware())
@@ -25,11 +34,11 @@ func SetupRoutes(r *gin.Engine) {
 			protected.DELETE("/:id", controllers.DeleteLog)
 		}
 
+		v1.GET("api/camera", controllers.ProxyWebcam)
+
 	}
 
-	r.GET("api/camera", controllers.ProxyWebcam)
 	r.GET("/ws", utils.WsHandler)
-
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})

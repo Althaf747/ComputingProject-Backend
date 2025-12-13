@@ -11,8 +11,8 @@ type Log struct {
 	Name       string    `gorm:"not null" json:"name"`
 	Role       string    `gorm:"not null" json:"role"`
 	Timestamp  string    `gorm:"not null" json:"timestamp"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	CreatedAt  time.Time `json:"-"`
+	UpdatedAt  time.Time `json:"-"`
 }
 
 func (Log) TableName() string {
