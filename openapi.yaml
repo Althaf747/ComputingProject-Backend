@@ -85,6 +85,97 @@ paths:
                   message:
                     type: string
                     example: Logged out successfully.
+  /api/users/reset_request:
+    post:
+      summary: Ajukan reset password (menunggu verifier)
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Berhasil mengajukan reset, menunggu approval
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: wait for verificator approval
+        '400':
+          description: Invalid input
+        '404':
+          description: User not found
+        '500':
+          description: Server error
+  /api/users/pending:
+    get:
+      summary: Daftar user pending / reset
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List user pending dan need reset
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+  /api/users/approve:
+    post:
+      summary: Approve user atau reset (hanya verifier)
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+          description: ID user yang akan di-approve
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  description: Role baru (opsional)
+      responses:
+        '200':
+          description: Approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: User not found
   /api/logs:
     get:
       summary: List all logs
@@ -213,7 +304,7 @@ paths:
           description: Log not found
         '500':
           description: Server error
-  /api/camera:
+  /api/api/camera:
     get:
       summary: Proxy webcam stream
       tags: [Utility]
@@ -245,6 +336,9 @@ components:
         role:
           type: string
           example: user
+        needReset:
+          type: boolean
+          example: false
         created_at:
           type: string
           format: date-time
@@ -293,6 +387,18 @@ components:
           description: JWT Bearer token
         data:
           $ref: '#/components/schemas/User'
+    PasswordResetRequest:
+      type: object
+      required: [username, password, confirmPassword]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+        confirmPassword:
+          type: string
+          format: password
     Log:
       type: object
       properties:
