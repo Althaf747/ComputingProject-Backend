@@ -53,10 +53,11 @@ OpenAPI spec is available at `openapi.yaml` for full details.
 - `POST /api/users/login` — Login, returns JWT
 - `POST /api/users/logout` — Client should discard token
 - `POST /api/users/reset_request` — User requests password reset (flags account `needReset=true`, awaits verifier)
+#### Auth (JWT Protected, Protected Route, Login required)
 - `GET /api/users/pending` — List pending signups and reset requests (auth, verifier)
 - `POST /api/users/approve?id={userId}` — Verifier approves user or reset; optional body `{ "role": "verifier" }`
 
-### Logs (JWT Protected)
+### Logs (JWT Protected, Protected Route, Login required)
 - `GET /api/logs` — List all logs
 - `GET /api/logs/filter?period=today&name=John` — Filter logs by period (today, date, or range)
   - **Today**: `?period=today` or no parameters (default)
