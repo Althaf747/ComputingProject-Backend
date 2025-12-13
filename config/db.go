@@ -13,7 +13,7 @@ var DB *gorm.DB
 
 func ConnectDatabase() {
 
-	dsn := "root:@tcp(127.0.0.1:3306)/comprodb?charset=utf8mb4&parseTime=True&loc=Local"
+	dsn := "root:@tcp(127.0.0.1:3306)/face_lock_backend?charset=utf8mb4&parseTime=True&loc=Local"
 
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
