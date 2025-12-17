@@ -1,205 +1,121 @@
-# Compro Backend API
+# Face Lock Backend
 
-A Gin-based Go backend for user authentication (JWT), approval workflow, password reset requests, and log management.
+Go backend API for Face Lock smart door security system with face recognition, real-time notifications, and user management.
+
+## Features
+
+- **User Authentication** - JWT-based auth with role-based access control
+- **Face Detection Logs** - Store and query face detection events
+- **Push Notifications** - Firebase Cloud Messaging for real-time alerts
+- **Camera Integration** - Proxy endpoints for Python face recognition service
+- **WebSocket** - Real-time event broadcasting
 
 ## Prerequisites
-- Go 1.25+
-- MySQL running locally (or reachable)
-- Port `8080` available
 
-## Quick Start (Windows)
+- Go 1.21+
+- MySQL 8.0+
+- Firebase project (for push notifications)
 
-```powershell
-# Clone your repo (if not already)
-# git clone <your-repo-url>
+## Quick Start
+
+```bash
+# Clone repository
+git clone <repo-url>
 cd ComputingProject-Backend
 
-# Ensure dependencies are present
+# Copy environment file
+cp .env.example .env
+# Edit .env with your configuration
+
+# Install dependencies
 go mod tidy
 
-# Start MySQL and create the database (adjust credentials as needed)
-# Example using mysql CLI
-# mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS comprodb CHARACTER SET utf8mb4;"
+# Create database
+mysql -u root -p -e "CREATE DATABASE face_lock_backend CHARACTER SET utf8mb4;"
 
-# Run the server
-go run .\main.go
+# Run server
+go run main.go
 ```
-
-Server runs at: `http://localhost:8080`
 
 ## Configuration
-Database DSN is currently hardcoded in `config/db.go`:
 
-```go
-dsn := "root:@tcp(127.0.0.1:3306)/comprodb?charset=utf8mb4&parseTime=True&loc=Local"
-```
+All configuration is done via environment variables. See `.env.example`:
 
-Update it to match your MySQL credentials or refactor to read from environment variables.
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_DSN` | MySQL connection string |
+| `JWT_SECRET` | Secret key for JWT signing (min 32 chars) |
+| `SERVICE_AUTH_TOKEN` | Token for service-to-service auth |
+| `FIREBASE_SERVICE_ACCOUNT_PATH` | Path to Firebase service account JSON |
 
-JWT secret is hardcoded in `middleware/auth.go`:
+## API Endpoints
 
-```go
-var JWTSecret = []byte("your-secret-key-change-this-in-production")
-```
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/users/register` | Register new user |
+| POST | `/api/users/login` | Login, returns JWT |
+| POST | `/api/users/logout` | Logout |
+| POST | `/api/users/reset_request` | Request password reset |
+| POST | `/api/users/fcm-token` | Update FCM token (auth required) |
 
-Change this for production. Optionally load from env.
+### User Management (Auth Required)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/users/pending` | List pending users |
+| POST | `/api/users/approve` | Approve/reject user |
 
-## API Overview
+### Logs (Auth Required)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/logs` | Get all logs |
+| GET | `/api/logs/filter` | Filter logs by period/name |
+| POST | `/api/logs` | Create log entry |
+| DELETE | `/api/logs/:id` | Delete log |
 
-OpenAPI spec is available at `openapi.yaml` for full details.
-
-### Auth
-- `POST /api/users/register` — Create user
-- `POST /api/users/login` — Login, returns JWT
-- `POST /api/users/logout` — Client should discard token
-- `POST /api/users/reset_request` — User requests password reset (flags account `needReset=true`, awaits verifier)
-- `GET /api/users/pending` — List pending signups and reset requests (auth, verifier)
-- `POST /api/users/approve?id={userId}[&action=reject]` — Verifier approves by default; add `action=reject` to reject signup/reset; optional body `{ "role": "verifier" }`
-
-### Logs (JWT Protected)
-- `GET /api/logs` — List all logs
-- `GET /api/logs/filter?period=today&name=John` — Filter logs by period (today, date, or range)
-  - **Today**: `?period=today` or no parameters (default)
-  - **Specific date**: `?period=date&date=YYYY-MM-DD`
-  - **Date range**: `?period=range&start=YYYY-MM-DD&end=YYYY-MM-DD`
-  - **With name filter**: Add `&name=John` to any query
-- `POST /api/logs` — Create log
-- `DELETE /api/logs/{id}` — Hard delete log
+### Camera (Proxied to Python Service)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/camera/stream` | MJPEG video stream |
+| GET | `/api/camera/snapshot` | Single frame |
+| GET | `/api/camera/status` | Camera status |
+| POST | `/api/camera/start` | Start camera |
+| POST | `/api/camera/stop` | Stop camera |
 
 ### Utility
-- `GET /health` — Healthcheck
-- `GET /api/camera` — Webcam proxy (path matches current route config)
-- `GET /ws` — WebSocket endpoint
-
-## Request/Response Examples
-
-### Register
-```bash
-curl -X POST http://localhost:8080/api/users/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"john","password":"password123","confirmPassword":"password123"}'
-```
-
-### Login
-```bash
-curl -X POST http://localhost:8080/api/users/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"john","password":"password123"}'
-```
-Response:
-```json
-{
-  "message": "Login successful",
-  "token": "<JWT_TOKEN>",
-  "data": {"id":1, "username":"john", "role":"user"}
-}
-```
-
-### Reset Password Request
-```bash
-curl -X POST http://localhost:8080/api/users/reset_request \
-  -H "Content-Type: application/json" \
-  -d '{"username":"john","password":"newpass","confirmPassword":"newpass"}'
-```
-Response:
-```json
-{ "message": "wait for verificator approval" }
-```
-
-### Pending / Approvals (verifier only)
-List pending users and reset requests:
-```bash
-curl -H "Authorization: Bearer <JWT_TOKEN>" \
-  http://localhost:8080/api/users/pending
-```
-
-Approve user/reset:
-```bash
-curl -X POST "http://localhost:8080/api/users/approve?id=5" \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"role":"user"}'
-```
-
-Reject signup/reset:
-```bash
-curl -X POST "http://localhost:8080/api/users/approve?id=5&action=reject" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-### Auth Header
-Use JWT token in the `Authorization` header:
-```text
-Authorization: Bearer <JWT_TOKEN>
-```
-
-### Get Filtered Logs
-
-**Today's logs:**
-```bash
-curl -X GET "http://localhost:8080/api/logs/filter?period=today" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-**Specific date:**
-```bash
-curl -X GET "http://localhost:8080/api/logs/filter?period=date&date=2025-12-12" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-**Date range:**
-```bash
-curl -X GET "http://localhost:8080/api/logs/filter?period=range&start=2025-12-01&end=2025-12-10" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-**With name filter:**
-```bash
-curl -X GET "http://localhost:8080/api/logs/filter?period=today&name=John" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-### Create Log
-```bash
-curl -X POST http://localhost:8080/api/logs \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "authorized": false,
-    "confidence": 0.91,
-    "name": "Unknown",
-    "role": "Guest",
-    "timestamp": "2025-12-12T06:22:27"
-  }'
-```
-
-### Delete Log
-```bash
-curl -X DELETE http://localhost:8080/api/logs/1 \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/api/ws` | WebSocket connection |
 
 ## Project Structure
+
 ```
-ComputingProject-Backend/
-  controllers/
-    log_controller.go
-    user_controller.go
-    connector.go
-  middleware/
-    auth.go
-  models/
-    log_model.go
-    user_model.go
-  routes/
-    routes.go
-  config/
-    db.go
-  go.mod
-  go.sum
-  main.go
-  openapi.yaml
+├── config/         # Database configuration
+├── controllers/    # Request handlers
+├── middleware/     # Auth middleware
+├── models/         # Database models
+├── routes/         # Route definitions
+├── services/       # Firebase service
+├── utils/          # WebSocket manager
+├── main.go         # Entry point
+└── openapi.yaml    # API specification
 ```
 
+## Push Notifications
+
+When a face is detected, push notifications are sent to all registered devices:
+
+- **Known person**: "Access Granted - {Name} was detected"
+- **Unknown person**: "⚠️ Unknown Person Detected"
+
+### Setup Firebase
+
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Project Settings → Service Accounts
+3. Generate new private key
+4. Save as `firebase-service-account.json` in project root
+
 ## License
-Made to fulfill the requirements of the Computing Project course
+
+Computing Project - Universitas Multimedia Nusantara

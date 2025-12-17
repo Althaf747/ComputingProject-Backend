@@ -22,6 +22,7 @@ func SetupRoutes(r *gin.Engine) {
 		{
 			userProtected.GET("/pending", controllers.GetPendingAndResetUsers)
 			userProtected.POST("/approve", controllers.Approval)
+			userProtected.POST("/fcm-token", controllers.UpdateFCMToken)
 		}
 
 		protected := v1.Group("/logs")
@@ -34,11 +35,24 @@ func SetupRoutes(r *gin.Engine) {
 			protected.DELETE("/:id", controllers.DeleteLog)
 		}
 
-		v1.GET("/camera", controllers.ProxyWebcam)
-
+		camera := v1.Group("/camera")
+		{
+			camera.GET("/stream", controllers.ProxyCameraStream)
+			camera.GET("/snapshot", controllers.ProxyCameraSnapshot)
+			camera.GET("/events", controllers.ProxyCameraEvents)
+			camera.GET("/status", controllers.GetCameraStatus)
+			camera.POST("/start", controllers.StartCamera)
+			camera.POST("/stop", controllers.StopCamera)
+			camera.GET("/config", controllers.GetCameraConfig)
+			camera.POST("/config", controllers.UpdateCameraConfig)
+			camera.GET("/zones", controllers.GetCameraZones)
+			camera.POST("/zones", controllers.UpdateCameraZones)
+			camera.POST("/test/droidcam", controllers.SetupDroidCam)
+			camera.POST("/test/rtsp", controllers.SetupRTSP)
+		}
 	}
 
-	r.GET("/ws", utils.WsHandler)
+	v1.GET("/ws", utils.WsHandler)
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})

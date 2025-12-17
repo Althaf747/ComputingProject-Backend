@@ -187,6 +187,42 @@ func ResetPassword(c *gin.Context) {
 
 }
 
+func UpdateFCMToken(c *gin.Context) {
+	var input struct {
+		FCMToken string `json:"fcm_token"`
+	}
+
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	if input.FCMToken == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "FCM token is required"})
+		return
+	}
+
+	userID := c.GetUint("user_id")
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	var user models.User
+	if err := config.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	user.FCMToken = input.FCMToken
+	if err := config.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update FCM token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "FCM token updated successfully"})
+}
+
 func Approval(c *gin.Context) {
 	var input struct {
 		NewRole string `json:"role"`

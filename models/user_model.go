@@ -12,6 +12,7 @@ type User struct {
 	Password   string         `gorm:"not null" json:"-"`
 	Role       string         `gorm:"not null" json:"role"`
 	NeedsReset bool           `gorm:"not null" json:"needReset"`
+	FCMToken   string         `gorm:"size:500" json:"-"`
 	CreatedAt  time.Time      `json:"-"`
 	UpdatedAt  time.Time      `json:"-"`
 	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
