@@ -1,20 +1,16 @@
 package models
 
-import (
-	"time"
-
-	"gorm.io/gorm"
-)
+import "time"
 
 type User struct {
-	ID         uint           `gorm:"primaryKey" json:"id"`
-	Username   string         `gorm:"unique;not null" json:"username"`
-	Password   string         `gorm:"not null" json:"-"`
-	Role       string         `gorm:"not null" json:"role"`
-	NeedsReset bool           `gorm:"not null" json:"needReset"`
-	CreatedAt  time.Time      `json:"-"`
-	UpdatedAt  time.Time      `json:"-"`
-	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	Username    string    `gorm:"unique;not null" json:"username"`
+	Password    string    `gorm:"not null" json:"-"`
+	OldPassword string    `gorm:"not null;default:''" json:"-"`
+	Role        string    `gorm:"not null" json:"role"`
+	NeedsReset  bool      `gorm:"not null" json:"needReset"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 func (User) TableName() string {

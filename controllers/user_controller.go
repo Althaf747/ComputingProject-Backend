@@ -59,7 +59,7 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "User created successfully, wait for verifier approval", "data": User})
+	c.JSON(http.StatusCreated, gin.H{"message": "User created successfully, wait for verificator approval", "data": User})
 }
 
 func Login(c *gin.Context) {
@@ -161,16 +161,11 @@ func ResetPassword(c *gin.Context) {
 		return
 	}
 
+	// Store current password before updating
+	user.OldPassword = user.Password
 	user.NeedsReset = true
-	if err := config.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
 
-	user.Username = PasswordResetInput.Username
-	user.Password = PasswordResetInput.Password
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(PasswordResetInput.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
@@ -179,7 +174,7 @@ func ResetPassword(c *gin.Context) {
 	user.Password = string(hashedPassword)
 
 	if err := config.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
 		return
 	}
 
@@ -201,7 +196,7 @@ func Approval(c *gin.Context) {
 
 	_ = c.ShouldBindJSON(&input)
 
-	if c.GetString("role") != "verifier" {
+	if c.GetString("role") != "verificator" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 		return
 	}
@@ -219,7 +214,12 @@ func Approval(c *gin.Context) {
 			user.Role = "rejected"
 			message = "Registration Reject Successful"
 		} else {
-			user.NeedsReset = true
+			// Reset request rejected: restore old password
+			if user.OldPassword != "" {
+				user.Password = user.OldPassword
+				user.OldPassword = ""
+			}
+			user.NeedsReset = false
 			message = "Reset Request Reject Successful"
 		}
 		if err := config.DB.Save(&user).Error; err != nil {
@@ -230,11 +230,13 @@ func Approval(c *gin.Context) {
 		return
 	}
 
+	// Approve: optionally set new role and clear reset flag
 	if input.NewRole != "" {
 		user.Role = input.NewRole
 	}
 
 	user.NeedsReset = false
+	user.OldPassword = "" // clear old password on approval
 	if err := config.DB.Save(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
