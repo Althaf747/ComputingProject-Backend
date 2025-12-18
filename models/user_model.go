@@ -11,6 +11,7 @@ type User struct {
 	NeedsReset  bool      `gorm:"not null" json:"needReset"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	FCMToken    string    `gorm:"size:500" json:"-"`
 }
 
 func (User) TableName() string {
