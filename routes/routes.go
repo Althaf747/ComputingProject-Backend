@@ -50,6 +50,15 @@ func SetupRoutes(r *gin.Engine) {
 			camera.POST("/test/droidcam", controllers.SetupDroidCam)
 			camera.POST("/test/rtsp", controllers.SetupRTSP)
 		}
+
+		faces := v1.Group("/faces")
+		{
+			faces.GET("", controllers.ListFaceUsers)
+			faces.POST("/enroll", controllers.EnrollFaceUser)
+			faces.POST("/enroll/capture", controllers.EnrollFaceUserCapture)
+			faces.DELETE("/:name", controllers.DeleteFaceUser)
+			faces.POST("/:name/add-sample", controllers.AddFaceSample)
+		}
 	}
 
 	v1.GET("/ws", utils.WsHandler)

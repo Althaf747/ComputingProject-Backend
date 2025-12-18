@@ -1,8 +1,18 @@
 openapi: 3.0.3
 info:
-  title: Compro Backend API
+  title: Face Lock Backend API
   version: 1.0.0
-  description: API for user auth, approval/reset workflow, and log management (JWT secured for protected routes).
+  description: |
+    Go backend API untuk sistem keamanan pintu pintar Face Lock dengan pengenalan wajah, 
+    notifikasi real-time, dan manajemen pengguna.
+
+    ## Fitur Utama
+    - User Authentication dengan JWT
+    - Role-based Access Control (pending, user, verifier)
+    - Log Deteksi Wajah dengan filter periode
+    - Push Notifications via Firebase Cloud Messaging
+    - Proxy ke Python Face Recognition Service
+    - WebSocket untuk real-time event broadcasting
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -14,7 +24,7 @@ paths:
       summary: Health check
       tags: [Utility]
       responses:
-        '200':
+        "200":
           description: Service is healthy
           content:
             application/json:
@@ -33,19 +43,19 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserRegisterRequest'
+              $ref: "#/components/schemas/UserRegisterRequest"
       responses:
-        '201':
+        "201":
           description: User created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserResponse'
-        '400':
+                $ref: "#/components/schemas/UserResponse"
+        "400":
           description: Invalid input or passwords do not match
-        '409':
+        "409":
           description: Username already exists
-        '500':
+        "500":
           description: Server error
   /api/users/login:
     post:
@@ -56,26 +66,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UserLoginRequest'
+              $ref: "#/components/schemas/UserLoginRequest"
       responses:
-        '200':
+        "200":
           description: Login successful
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoginResponse'
-        '400':
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
           description: Invalid input
-        '401':
+        "401":
           description: Invalid username or password
-        '500':
+        "500":
           description: Server error
   /api/users/logout:
     post:
       summary: Logout (client should discard token)
       tags: [Auth]
       responses:
-        '200':
+        "200":
           description: Logged out
           content:
             application/json:
@@ -94,9 +104,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/PasswordResetRequest'
+              $ref: "#/components/schemas/PasswordResetRequest"
       responses:
-        '200':
+        "200":
           description: Berhasil mengajukan reset, menunggu approval
           content:
             application/json:
@@ -106,11 +116,11 @@ paths:
                   message:
                     type: string
                     example: wait for verificator approval
-        '400':
+        "400":
           description: Invalid input atau tidak boleh reset untuk user pending/rejected
-        '404':
+        "404":
           description: User not found
-        '500':
+        "500":
           description: Server error
   /api/users/pending:
     get:
@@ -119,7 +129,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: List user pending dan need reset
           content:
             application/json:
@@ -129,8 +139,8 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/User'
-        '401':
+                      $ref: "#/components/schemas/User"
+        "401":
           description: Unauthorized
   /api/users/approve:
     post:
@@ -165,7 +175,7 @@ paths:
                   type: string
                   description: Role baru (opsional)
       responses:
-        '200':
+        "200":
           description: Approved or rejected
           content:
             application/json:
@@ -175,14 +185,14 @@ paths:
                   message:
                     type: string
                   data:
-                    $ref: '#/components/schemas/User'
-        '400':
+                    $ref: "#/components/schemas/User"
+        "400":
           description: Invalid input
-        '401':
+        "401":
           description: Unauthorized
-        '403':
+        "403":
           description: Insufficient permissions
-        '404':
+        "404":
           description: User not found
   /api/logs:
     get:
@@ -191,7 +201,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: List of logs
           content:
             application/json:
@@ -201,7 +211,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Log'
+                      $ref: "#/components/schemas/Log"
     post:
       summary: Create a log entry
       tags: [Logs]
@@ -212,9 +222,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LogCreate'
+              $ref: "#/components/schemas/LogCreate"
       responses:
-        '201':
+        "201":
           description: Log created
           content:
             application/json:
@@ -222,10 +232,10 @@ paths:
                 type: object
                 properties:
                   data:
-                    $ref: '#/components/schemas/Log'
-        '400':
+                    $ref: "#/components/schemas/Log"
+        "400":
           description: Invalid input
-        '500':
+        "500":
           description: Server error
   /api/logs/filter:
     get:
@@ -273,13 +283,13 @@ paths:
           required: false
           description: Filter by visitor name
       responses:
-        '200':
+        "200":
           description: Logs with stats
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LogStatsResponse'
-        '400':
+                $ref: "#/components/schemas/LogStatsResponse"
+        "400":
           description: Invalid parameters or date format
   /api/logs/{id}:
     delete:
@@ -296,7 +306,7 @@ paths:
             format: int64
           description: Log ID
       responses:
-        '200':
+        "200":
           description: Deleted
           content:
             application/json:
@@ -306,25 +316,377 @@ paths:
                   message:
                     type: string
                     example: Log deleted successfully
-        '400':
+        "400":
           description: Invalid ID
-        '404':
+        "404":
           description: Log not found
-        '500':
+        "500":
           description: Server error
-  /api/camera:
+  /api/camera/stream:
     get:
-      summary: Proxy webcam stream
-      tags: [Utility]
+      summary: Proxy MJPEG video stream dari Python service
+      tags: [Camera]
       responses:
-        '200':
-          description: Stream proxied
-  /ws:
+        "200":
+          description: MJPEG video stream
+          content:
+            multipart/x-mixed-replace:
+              schema:
+                type: string
+                format: binary
+        "502":
+          description: Failed to connect to camera service
+  /api/camera/snapshot:
+    get:
+      summary: Get single frame snapshot
+      tags: [Camera]
+      responses:
+        "200":
+          description: Image snapshot
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "502":
+          description: Failed to get snapshot
+  /api/camera/events:
+    get:
+      summary: SSE stream untuk detection events
+      tags: [Camera]
+      responses:
+        "200":
+          description: Server-Sent Events stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "502":
+          description: Failed to connect to camera events
+  /api/camera/status:
+    get:
+      summary: Get camera status
+      tags: [Camera]
+      responses:
+        "200":
+          description: Camera status
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to get camera status
+  /api/camera/start:
+    post:
+      summary: Start camera
+      tags: [Camera]
+      responses:
+        "200":
+          description: Camera started
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to start camera
+  /api/camera/stop:
+    post:
+      summary: Stop camera
+      tags: [Camera]
+      responses:
+        "200":
+          description: Camera stopped
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to stop camera
+  /api/camera/config:
+    get:
+      summary: Get camera configuration
+      tags: [Camera]
+      responses:
+        "200":
+          description: Camera configuration
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to get camera config
+    post:
+      summary: Update camera configuration
+      tags: [Camera]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Configuration updated
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to update camera config
+  /api/camera/zones:
+    get:
+      summary: Get detection zones
+      tags: [Camera]
+      responses:
+        "200":
+          description: Detection zones
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to get camera zones
+    post:
+      summary: Update detection zones
+      tags: [Camera]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Zones updated
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to update camera zones
+  /api/camera/test/droidcam:
+    post:
+      summary: Setup DroidCam
+      tags: [Camera]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ip:
+                  type: string
+                  example: "192.168.1.100"
+                port:
+                  type: integer
+                  example: 4747
+      responses:
+        "200":
+          description: DroidCam setup successful
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to setup DroidCam
+  /api/camera/test/rtsp:
+    post:
+      summary: Setup RTSP stream
+      tags: [Camera]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  example: "rtsp://192.168.1.100:554/stream"
+      responses:
+        "200":
+          description: RTSP setup successful
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to setup RTSP
+  /api/faces:
+    get:
+      summary: List enrolled face users
+      tags: [Faces]
+      responses:
+        "200":
+          description: List of enrolled users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        sample_count:
+                          type: integer
+        "502":
+          description: Failed to get users from face recognition service
+  /api/faces/enroll:
+    post:
+      summary: Enroll new user with face images
+      tags: [Faces]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, images]
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                role:
+                  type: string
+                  example: "user"
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: base64
+                  description: Base64 encoded images
+      responses:
+        "200":
+          description: User enrolled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to enroll user
+  /api/faces/enroll/capture:
+    post:
+      summary: Enroll user from single camera capture
+      tags: [Faces]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                role:
+                  type: string
+                  example: "user"
+      responses:
+        "200":
+          description: User enrolled from capture
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to enroll user from capture
+  /api/faces/{name}:
+    delete:
+      summary: Delete user from face database
+      tags: [Faces]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+          description: Name of the user to delete
+      responses:
+        "200":
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to delete user
+  /api/faces/{name}/add-sample:
+    post:
+      summary: Add face sample to existing user
+      tags: [Faces]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+          description: Name of the user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: base64
+                  description: Base64 encoded image
+      responses:
+        "200":
+          description: Sample added
+          content:
+            application/json:
+              schema:
+                type: object
+        "502":
+          description: Failed to add face sample
+  /api/users/fcm-token:
+    post:
+      summary: Update FCM token for push notifications
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fcm_token]
+              properties:
+                fcm_token:
+                  type: string
+                  description: Firebase Cloud Messaging token
+      responses:
+        "200":
+          description: FCM token updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: FCM token updated successfully
+        "400":
+          description: Invalid input or FCM token is required
+        "401":
+          description: Unauthorized
+        "404":
+          description: User not found
+  /api/ws:
     get:
       summary: WebSocket endpoint
       tags: [Utility]
       responses:
-        '101':
+        "101":
           description: Switching protocols (WebSocket)
 components:
   securitySchemes:
@@ -383,7 +745,7 @@ components:
           type: string
           example: User created successfully
         data:
-          $ref: '#/components/schemas/User'
+          $ref: "#/components/schemas/User"
     LoginResponse:
       type: object
       properties:
@@ -394,7 +756,7 @@ components:
           type: string
           description: JWT Bearer token
         data:
-          $ref: '#/components/schemas/User'
+          $ref: "#/components/schemas/User"
     PasswordResetRequest:
       type: object
       required: [username, password, confirmPassword]
@@ -457,7 +819,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Log'
+            $ref: "#/components/schemas/Log"
         count:
           type: integer
           example: 12

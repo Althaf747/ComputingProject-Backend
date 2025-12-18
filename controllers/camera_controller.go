@@ -258,3 +258,76 @@ func SetupRTSP(c *gin.Context) {
 	json.NewDecoder(resp.Body).Decode(&result)
 	c.JSON(resp.StatusCode, result)
 }
+
+func ListFaceUsers(c *gin.Context) {
+	resp, err := http.Get(pythonBaseURL + "/api/users")
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to get users from face recognition service"})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+	c.JSON(resp.StatusCode, result)
+}
+
+func EnrollFaceUser(c *gin.Context) {
+	body, _ := io.ReadAll(c.Request.Body)
+	resp, err := http.Post(pythonBaseURL+"/api/enroll", "application/json", bytes.NewReader(body))
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to enroll user"})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+	c.JSON(resp.StatusCode, result)
+}
+
+func EnrollFaceUserCapture(c *gin.Context) {
+	body, _ := io.ReadAll(c.Request.Body)
+	resp, err := http.Post(pythonBaseURL+"/api/enroll/capture", "application/json", bytes.NewReader(body))
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to enroll user from capture"})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+	c.JSON(resp.StatusCode, result)
+}
+
+func DeleteFaceUser(c *gin.Context) {
+	name := c.Param("name")
+	req, _ := http.NewRequest(http.MethodDelete, pythonBaseURL+"/api/users/"+name, nil)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to delete user"})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+	c.JSON(resp.StatusCode, result)
+}
+
+func AddFaceSample(c *gin.Context) {
+	name := c.Param("name")
+	body, _ := io.ReadAll(c.Request.Body)
+	resp, err := http.Post(pythonBaseURL+"/api/users/"+name+"/add-sample", "application/json", bytes.NewReader(body))
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "Failed to add face sample"})
+		return
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	json.NewDecoder(resp.Body).Decode(&result)
+	c.JSON(resp.StatusCode, result)
+}

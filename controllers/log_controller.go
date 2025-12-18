@@ -137,7 +137,7 @@ func sendLogNotification(log models.Log) {
 		title = "Access Granted"
 		body = fmt.Sprintf("%s was detected at the door", log.Name)
 	} else {
-		title = "⚠️ Unknown Person Detected"
+		title = "Unknown Person Detected"
 		body = "An unknown person was detected at the door"
 	}
 
