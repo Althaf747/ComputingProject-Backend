@@ -337,4 +337,4 @@ OpenAPI 3.0 specification tersedia di `openapi.yaml`. Import ke Swagger UI atau 
 
 ## License
 
-Computing Project - Universitas Indonesia
+Computing Project - Telkom University
