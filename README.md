@@ -1,205 +1,340 @@
-# Compro Backend API
+# Face Lock Backend
 
-A Gin-based Go backend for user authentication (JWT), approval workflow, password reset requests, and log management.
+Go backend API untuk sistem keamanan pintu pintar Face Lock dengan pengenalan wajah, notifikasi real-time, dan manajemen pengguna.
+
+## Fitur Utama
+
+- **Autentikasi Pengguna** - JWT-based auth dengan role-based access control (pending, user, verifier)
+- **Log Deteksi Wajah** - Simpan dan query event deteksi wajah dengan filter periode
+- **Push Notifications** - Firebase Cloud Messaging untuk alert real-time ke perangkat mobile
+- **Integrasi Kamera** - Proxy endpoint ke Python face recognition service
+- **WebSocket** - Real-time event broadcasting untuk update langsung ke client
+- **Approval Workflow** - Sistem persetujuan untuk registrasi user dan reset password
+
+## Tech Stack
+
+- **Go 1.25+** - Backend language
+- **Gin** - HTTP web framework
+- **GORM** - ORM untuk MySQL
+- **MySQL 8.0+** - Database
+- **Firebase Admin SDK** - Push notifications
+- **Gorilla WebSocket** - Real-time communication
+- **JWT** - Authentication tokens
 
 ## Prerequisites
-- Go 1.25+
-- MySQL running locally (or reachable)
-- Port `8080` available
 
-## Quick Start (Windows)
+- Go 1.21+ (tested on 1.25)
+- MySQL 8.0+
+- Firebase project (untuk push notifications)
+- Python face recognition service running di `localhost:5000`
 
-```powershell
-# Clone your repo (if not already)
-# git clone <your-repo-url>
+## Quick Start
+
+```bash
+# Clone repository
+git clone <repo-url>
 cd ComputingProject-Backend
 
-# Ensure dependencies are present
+# Copy environment file
+cp .env.example .env
+# Edit .env dengan konfigurasi Anda
+
+# Install dependencies
 go mod tidy
 
-# Start MySQL and create the database (adjust credentials as needed)
-# Example using mysql CLI
-# mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS comprodb CHARACTER SET utf8mb4;"
+# Create database
+mysql -u root -p -e "CREATE DATABASE face_lock_backend CHARACTER SET utf8mb4;"
 
-# Run the server
-go run .\main.go
+# Run server
+go run main.go
 ```
 
-Server runs at: `http://localhost:8080`
+Server akan berjalan di `http://192.168.18.8:8080` (sesuaikan IP di `main.go`).
 
-## Configuration
-Database DSN is currently hardcoded in `config/db.go`:
+## Konfigurasi
 
-```go
-dsn := "root:@tcp(127.0.0.1:3306)/comprodb?charset=utf8mb4&parseTime=True&loc=Local"
+Semua konfigurasi dilakukan via environment variables. Lihat `.env.example`:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DATABASE_DSN` | MySQL connection string | `root:@tcp(127.0.0.1:3306)/face_lock_backend?charset=utf8mb4&parseTime=True&loc=Local` |
+| `JWT_SECRET` | Secret key untuk JWT signing (min 32 chars) | `change-this-in-production-32chars` |
+| `SERVICE_AUTH_TOKEN` | Token untuk service-to-service auth | - |
+| `FIREBASE_SERVICE_ACCOUNT_PATH` | Path ke Firebase service account JSON | `firebase-service-account.json` |
+
+## Struktur Project
+
+```
+ComputingProject-Backend/
+├── config/
+│   └── db.go                 # Database connection & auto-migration
+├── controllers/
+│   ├── camera_controller.go  # Proxy ke Python face recognition service
+│   ├── log_controller.go     # CRUD log deteksi wajah
+│   └── user_controller.go    # Auth, register, login, approval
+├── middleware/
+│   └── auth.go               # JWT & service token authentication
+├── models/
+│   ├── log_model.go          # Model Log (deteksi wajah)
+│   └── user_model.go         # Model User
+├── routes/
+│   └── routes.go             # Route definitions
+├── services/
+│   └── firebase.go           # Firebase FCM push notifications
+├── utils/
+│   └── websocket.go          # WebSocket manager & handler
+├── .env.example              # Template environment variables
+├── firebase-service-account.json  # Firebase credentials (gitignored)
+├── go.mod                    # Go module dependencies
+├── go.sum                    # Dependency checksums
+├── main.go                   # Entry point
+├── openapi.yaml              # OpenAPI 3.0 specification
+└── README.md                 # Dokumentasi ini
 ```
 
-Update it to match your MySQL credentials or refactor to read from environment variables.
+## API Endpoints
 
-JWT secret is hardcoded in `middleware/auth.go`:
+### Authentication (Public)
 
-```go
-var JWTSecret = []byte("your-secret-key-change-this-in-production")
-```
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/users/register` | Register user baru (status: pending) |
+| `POST` | `/api/users/login` | Login, returns JWT token |
+| `POST` | `/api/users/logout` | Logout (client discard token) |
+| `POST` | `/api/users/reset_request` | Request reset password |
 
-Change this for production. Optionally load from env.
+### User Management (Auth Required)
 
-## API Overview
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/users/pending` | List user pending & need reset |
+| `POST` | `/api/users/approve?id={id}&action={approve\|reject}` | Approve/reject user (verifier only) |
+| `POST` | `/api/users/fcm-token` | Update FCM token untuk push notification |
 
-OpenAPI spec is available at `openapi.yaml` for full details.
+### Logs (Auth Required)
 
-### Auth
-- `POST /api/users/register` — Create user
-- `POST /api/users/login` — Login, returns JWT
-- `POST /api/users/logout` — Client should discard token
-- `POST /api/users/reset_request` — User requests password reset (flags account `needReset=true`, awaits verifier)
-- `GET /api/users/pending` — List pending signups and reset requests (auth, verifier)
-- `POST /api/users/approve?id={userId}[&action=reject]` — Verifier approves by default; add `action=reject` to reject signup/reset; optional body `{ "role": "verifier" }`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/logs` | Get semua log |
+| `GET` | `/api/logs/filter` | Filter log by period/name |
+| `POST` | `/api/logs` | Create log entry |
+| `DELETE` | `/api/logs/:id` | Delete log (hard delete) |
 
-### Logs (JWT Protected)
-- `GET /api/logs` — List all logs
-- `GET /api/logs/filter?period=today&name=John` — Filter logs by period (today, date, or range)
-  - **Today**: `?period=today` or no parameters (default)
-  - **Specific date**: `?period=date&date=YYYY-MM-DD`
-  - **Date range**: `?period=range&start=YYYY-MM-DD&end=YYYY-MM-DD`
-  - **With name filter**: Add `&name=John` to any query
-- `POST /api/logs` — Create log
-- `DELETE /api/logs/{id}` — Hard delete log
+**Filter Parameters untuk `/api/logs/filter`:**
+- `period` - `today` (default), `date`, atau `range`
+- `date` - Format `YYYY-MM-DD` (required jika period=date)
+- `start` & `end` - Format `YYYY-MM-DD` (required jika period=range)
+- `name` - Filter by nama visitor
+
+### Camera (Proxy ke Python Service)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/camera/stream` | MJPEG video stream |
+| `GET` | `/api/camera/snapshot` | Single frame capture |
+| `GET` | `/api/camera/events` | SSE stream untuk detection events |
+| `GET` | `/api/camera/status` | Status kamera |
+| `POST` | `/api/camera/start` | Start kamera |
+| `POST` | `/api/camera/stop` | Stop kamera |
+| `GET` | `/api/camera/config` | Get konfigurasi kamera |
+| `POST` | `/api/camera/config` | Update konfigurasi kamera |
+| `GET` | `/api/camera/zones` | Get detection zones |
+| `POST` | `/api/camera/zones` | Update detection zones |
+| `POST` | `/api/camera/test/droidcam` | Setup DroidCam |
+| `POST` | `/api/camera/test/rtsp` | Setup RTSP stream |
+
+### Face Management (Proxy ke Python Service)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/faces` | List enrolled face users |
+| `POST` | `/api/faces/enroll` | Enroll user baru dengan images |
+| `POST` | `/api/faces/enroll/capture` | Enroll dari single capture |
+| `DELETE` | `/api/faces/:name` | Delete user dari face database |
+| `POST` | `/api/faces/:name/add-sample` | Tambah face sample ke user |
 
 ### Utility
-- `GET /health` — Healthcheck
-- `GET /api/camera` — Webcam proxy (path matches current route config)
-- `GET /ws` — WebSocket endpoint
 
-## Request/Response Examples
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check |
+| `GET` | `/api/ws` | WebSocket connection |
 
-### Register
-```bash
-curl -X POST http://localhost:8080/api/users/register \
-  -H "Content-Type: application/json" \
-  -d '{"username":"john","password":"password123","confirmPassword":"password123"}'
+## Data Models
+
+### User
+
+```json
+{
+  "id": 1,
+  "username": "johndoe",
+  "role": "user",        // pending | user | verifier | rejected
+  "needReset": false
+}
 ```
 
-### Login
+### Log
+
+```json
+{
+  "id": 1,
+  "authorized": true,
+  "confidence": 0.95,
+  "name": "John Doe",
+  "role": "user",
+  "timestamp": "2025-12-18T07:30:00"
+}
+```
+
+## Authentication Flow
+
+### 1. Register
 ```bash
-curl -X POST http://localhost:8080/api/users/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"john","password":"password123"}'
+POST /api/users/register
+{
+  "username": "johndoe",
+  "password": "password123",
+  "confirmPassword": "password123"
+}
+```
+User akan mendapat status `pending` dan menunggu approval dari verifier.
+
+### 2. Login
+```bash
+POST /api/users/login
+{
+  "username": "johndoe",
+  "password": "password123"
+}
 ```
 Response:
 ```json
 {
   "message": "Login successful",
-  "token": "<JWT_TOKEN>",
-  "data": {"id":1, "username":"john", "role":"user"}
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "data": { "id": 1, "username": "johndoe", "role": "user" }
 }
 ```
 
-### Reset Password Request
+### 3. Authenticated Request
 ```bash
-curl -X POST http://localhost:8080/api/users/reset_request \
-  -H "Content-Type: application/json" \
-  -d '{"username":"john","password":"newpass","confirmPassword":"newpass"}'
+GET /api/logs
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
-Response:
+
+### 4. Service-to-Service Auth
+Untuk internal service (Python face recognition), gunakan `SERVICE_AUTH_TOKEN`:
+```bash
+POST /api/logs
+Authorization: Bearer your-service-token-here
+```
+
+## Push Notifications
+
+Ketika wajah terdeteksi, push notification dikirim ke semua device yang terdaftar:
+
+- **Known person**: "Access Granted - {Name} was detected at the door"
+- **Unknown person**: "Unknown Person Detected - An unknown person was detected at the door"
+
+### Setup Firebase
+
+1. Buka [Firebase Console](https://console.firebase.google.com)
+2. Buat project baru atau pilih existing project
+3. Project Settings → Service Accounts
+4. Generate new private key
+5. Simpan sebagai `firebase-service-account.json` di project root
+6. Pastikan file ini ada di `.gitignore`
+
+## WebSocket
+
+WebSocket endpoint di `/api/ws` untuk real-time event broadcasting.
+
+### Connect
+```javascript
+const ws = new WebSocket('ws://192.168.18.8:8080/api/ws');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Detection event:', data);
+};
+```
+
+### Event Format
 ```json
-{ "message": "wait for verificator approval" }
+{
+  "type": "detection",
+  "data": {
+    "name": "John Doe",
+    "authorized": true,
+    "confidence": 0.95,
+    "timestamp": "2025-12-18T07:30:00"
+  }
+}
 ```
 
-### Pending / Approvals (verifier only)
-List pending users and reset requests:
+### Send Log via WebSocket
+Client juga bisa mengirim log entry via WebSocket:
+```javascript
+ws.send(JSON.stringify({
+  "authorized": true,
+  "confidence": 0.95,
+  "name": "John Doe",
+  "role": "user",
+  "timestamp": "2025-12-18T07:30:00"
+}));
+```
+
+## Role-Based Access Control
+
+| Role | Description | Permissions |
+|------|-------------|-------------|
+| `pending` | User baru menunggu approval | Tidak bisa login |
+| `user` | User biasa | Akses logs, update FCM token |
+| `verifier` | Admin/verifier | Approve/reject user, semua akses user |
+| `rejected` | User ditolak | Tidak bisa login |
+| `service` | Internal service | Full access via service token |
+
+## Error Responses
+
+Semua error menggunakan format standar:
+```json
+{
+  "error": "Error message description"
+}
+```
+
+HTTP Status Codes:
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request
+- `401` - Unauthorized
+- `403` - Forbidden
+- `404` - Not Found
+- `409` - Conflict
+- `500` - Internal Server Error
+- `502` - Bad Gateway (Python service unavailable)
+
+## Development
+
+### Run dengan hot reload (opsional)
 ```bash
-curl -H "Authorization: Bearer <JWT_TOKEN>" \
-  http://localhost:8080/api/users/pending
+# Install air
+go install github.com/cosmtrek/air@latest
+
+# Run
+air
 ```
 
-Approve user/reset:
+### Build untuk production
 ```bash
-curl -X POST "http://localhost:8080/api/users/approve?id=5" \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{"role":"user"}'
+go build -o face-lock-backend main.go
+./face-lock-backend
 ```
 
-Reject signup/reset:
-```bash
-curl -X POST "http://localhost:8080/api/users/approve?id=5&action=reject" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
+## API Documentation
 
-### Auth Header
-Use JWT token in the `Authorization` header:
-```text
-Authorization: Bearer <JWT_TOKEN>
-```
-
-### Get Filtered Logs
-
-**Today's logs:**
-```bash
-curl -X GET "http://localhost:8080/api/logs/filter?period=today" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-**Specific date:**
-```bash
-curl -X GET "http://localhost:8080/api/logs/filter?period=date&date=2025-12-12" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-**Date range:**
-```bash
-curl -X GET "http://localhost:8080/api/logs/filter?period=range&start=2025-12-01&end=2025-12-10" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-**With name filter:**
-```bash
-curl -X GET "http://localhost:8080/api/logs/filter?period=today&name=John" \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-### Create Log
-```bash
-curl -X POST http://localhost:8080/api/logs \
-  -H "Authorization: Bearer <JWT_TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "authorized": false,
-    "confidence": 0.91,
-    "name": "Unknown",
-    "role": "Guest",
-    "timestamp": "2025-12-12T06:22:27"
-  }'
-```
-
-### Delete Log
-```bash
-curl -X DELETE http://localhost:8080/api/logs/1 \
-  -H "Authorization: Bearer <JWT_TOKEN>"
-```
-
-## Project Structure
-```
-ComputingProject-Backend/
-  controllers/
-    log_controller.go
-    user_controller.go
-    connector.go
-  middleware/
-    auth.go
-  models/
-    log_model.go
-    user_model.go
-  routes/
-    routes.go
-  config/
-    db.go
-  go.mod
-  go.sum
-  main.go
-  openapi.yaml
-```
+OpenAPI 3.0 specification tersedia di `openapi.yaml`. Import ke Swagger UI atau Postman untuk interactive documentation.
 
 ## License
-Made to fulfill the requirements of the Computing Project course
+
+Computing Project - Telkom University

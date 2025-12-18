@@ -4,13 +4,22 @@ import (
 	"comproBackend/config"
 	"comproBackend/models"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var JWTSecret = []byte("your-secret-key-change-this-in-production")
+var JWTSecret = getJWTSecret()
+
+func getJWTSecret() []byte {
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		secret = "change-this-in-production-32chars"
+	}
+	return []byte(secret)
+}
 
 type Claims struct {
 	UserID   uint   `json:"user_id"`
@@ -36,6 +45,15 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		tokenString := parts[1]
+
+		// Check for service token (internal service-to-service auth)
+		serviceToken := os.Getenv("SERVICE_AUTH_TOKEN")
+		if serviceToken != "" && tokenString == serviceToken {
+			c.Set("username", "face_lock_service")
+			c.Set("role", "service")
+			c.Next()
+			return
+		}
 
 		claims := &Claims{}
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {

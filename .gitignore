@@ -1,1 +1,12 @@
-
+.env
+firebase-service-account.json
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+.idea/
+.vscode/

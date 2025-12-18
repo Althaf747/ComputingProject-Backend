@@ -3,6 +3,8 @@ package controllers
 import (
 	"comproBackend/config"
 	"comproBackend/models"
+	"comproBackend/services"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -114,7 +116,51 @@ func CreateLog(c *gin.Context) {
 		return
 	}
 
+	go sendLogNotification(Log)
+
 	c.JSON(http.StatusCreated, gin.H{"data": Log})
+}
+
+func sendLogNotification(log models.Log) {
+	var users []models.User
+	if err := config.DB.Where("fcm_token != '' AND fcm_token IS NOT NULL").Find(&users).Error; err != nil {
+		fmt.Printf("Error fetching users for notification: %v\n", err)
+		return
+	}
+
+	if len(users) == 0 {
+		return
+	}
+
+	var title, body string
+	if log.Authorized {
+		title = "Access Granted"
+		body = fmt.Sprintf("%s was detected at the door", log.Name)
+	} else {
+		title = "Unknown Person Detected"
+		body = "An unknown person was detected at the door"
+	}
+
+	data := map[string]string{
+		"type":       "log",
+		"log_id":     fmt.Sprintf("%d", log.ID),
+		"name":       log.Name,
+		"authorized": fmt.Sprintf("%t", log.Authorized),
+		"timestamp":  log.Timestamp,
+	}
+
+	var tokens []string
+	for _, user := range users {
+		if user.FCMToken != "" {
+			tokens = append(tokens, user.FCMToken)
+		}
+	}
+
+	if len(tokens) > 0 {
+		if err := services.SendPushNotificationToMultiple(tokens, title, body, data); err != nil {
+			fmt.Printf("Error sending push notifications: %v\n", err)
+		}
+	}
 }
 
 func DeleteLog(c *gin.Context) {
