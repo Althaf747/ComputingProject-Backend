@@ -237,7 +237,7 @@ func Approval(c *gin.Context) {
 
 	_ = c.ShouldBindJSON(&input)
 
-	if c.GetString("role") != "verifier" {
+	if c.GetString("role") != "verificator" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
 		return
 	}
@@ -255,7 +255,7 @@ func Approval(c *gin.Context) {
 			user.Role = "rejected"
 			message = "Registration Reject Successful"
 		} else {
-			user.NeedsReset = true
+			user.NeedsReset = false
 			message = "Reset Request Reject Successful"
 		}
 		if err := config.DB.Save(&user).Error; err != nil {

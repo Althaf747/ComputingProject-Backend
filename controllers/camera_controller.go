@@ -120,7 +120,7 @@ func saveDetectionLog(event map[string]interface{}) {
 		timestamp = time.Now().Format(time.RFC3339)
 	}
 	if role == "" {
-		role = "unknown"
+		role = "Guest"
 	}
 
 	logEntry := models.Log{

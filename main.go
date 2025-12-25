@@ -21,6 +21,9 @@ func main() {
 	// Initialize database
 	config.ConnectDatabase()
 
+	// Seed UAT test users
+	services.SeedUATUsers()
+
 	// Initialize Firebase for push notifications
 	if err := services.InitFirebase(); err != nil {
 		log.Printf("Warning: Failed to initialize Firebase: %v", err)
