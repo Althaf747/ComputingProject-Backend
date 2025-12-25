@@ -59,7 +59,7 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"message": "User created successfully, wait for verifier approval", "data": User})
+	c.JSON(http.StatusCreated, gin.H{"message": "User created successfully, wait for verificator approval", "data": User})
 }
 
 func Login(c *gin.Context) {
@@ -161,16 +161,11 @@ func ResetPassword(c *gin.Context) {
 		return
 	}
 
+	// Store current password before updating
+	user.OldPassword = user.Password
 	user.NeedsReset = true
-	if err := config.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
 
-	user.Username = PasswordResetInput.Username
-	user.Password = PasswordResetInput.Password
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(PasswordResetInput.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
@@ -179,12 +174,74 @@ func ResetPassword(c *gin.Context) {
 	user.Password = string(hashedPassword)
 
 	if err := config.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "wait for verificator approval"})
 
+}
+
+func Approval(c *gin.Context) {
+	var input struct {
+		NewRole string `json:"role"`
+	}
+
+	action := c.Query("action")
+	userID, err := strconv.ParseUint(c.Query("id"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
+		return
+	}
+
+	_ = c.ShouldBindJSON(&input)
+
+	if c.GetString("role") != "verificator" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+		return
+	}
+
+	var user models.User
+
+	if err := config.DB.First(&user, "id = ?", userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+
+	var message string
+	if action == "reject" {
+		if user.Role == "pending" {
+			user.Role = "rejected"
+			message = "Registration Reject Successful"
+		} else {
+			// Reset request rejected: restore old password
+			if user.OldPassword != "" {
+				user.Password = user.OldPassword
+				user.OldPassword = ""
+			}
+			user.NeedsReset = false
+			message = "Reset Request Reject Successful"
+		}
+		if err := config.DB.Save(&user).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"message": message, "data": user})
+		return
+	}
+
+	// Approve: optionally set new role and clear reset flag
+	if input.NewRole != "" {
+		user.Role = input.NewRole
+	}
+
+	user.NeedsReset = false
+	user.OldPassword = "" // clear old password on approval
+	if err := config.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "User Approved successfully", "data": user})
 }
 
 func UpdateFCMToken(c *gin.Context) {
@@ -221,59 +278,4 @@ func UpdateFCMToken(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "FCM token updated successfully"})
-}
-
-func Approval(c *gin.Context) {
-	var input struct {
-		NewRole string `json:"role"`
-	}
-
-	action := c.Query("action")
-	userID, err := strconv.ParseUint(c.Query("id"), 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
-		return
-	}
-
-	_ = c.ShouldBindJSON(&input)
-
-	if c.GetString("role") != "verificator" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
-
-	var user models.User
-
-	if err := config.DB.First(&user, "id = ?", userID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
-
-	var message string
-	if action == "reject" {
-		if user.Role == "pending" {
-			user.Role = "rejected"
-			message = "Registration Reject Successful"
-		} else {
-			user.NeedsReset = false
-			message = "Reset Request Reject Successful"
-		}
-		if err := config.DB.Save(&user).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"message": message, "data": user})
-		return
-	}
-
-	if input.NewRole != "" {
-		user.Role = input.NewRole
-	}
-
-	user.NeedsReset = false
-	if err := config.DB.Save(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "User Approved successfully", "data": user})
 }
