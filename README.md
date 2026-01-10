@@ -1,4 +1,4 @@
-# Face Lock Backend
+# FaceGate AI Backend
 
 Go backend API untuk sistem keamanan pintu pintar Face Lock dengan pengenalan wajah, notifikasi real-time, dan manajemen pengguna.
 
